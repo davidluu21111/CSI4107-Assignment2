@@ -5,3 +5,4 @@ requests
 nltk
 pytrec_eval
 numpy
+sentence-transformers

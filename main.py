@@ -1,6 +1,3 @@
-# main.py
-import os
-os.environ["HF_HOME"] = "D:/huggingface_cache"
 
 import pandas as pd
 import requests
@@ -10,7 +7,7 @@ import pytrec_eval
 # Import our modules
 from bm25 import preprocess_text_dataframe, build_inverted_index_with_stats, generate_results_file_bm25, retrieve_and_rank_bm25
 from colbert import rerank_colbert
-from e5_model import rerank_e5
+from mpnet import rerank_mpnet
 
 # Helper function to load qrels and TREC results for evaluation
 def load_qrels_tsv(filepath):
@@ -40,7 +37,7 @@ def load_trec_results(filepath):
 
 # Generate neural results using a generic function
 def generate_neural_results(queries_df, inverted_index, doc_lengths, avgdl, corpus_df,
-                            output_file, run_name, k1, b, rerank_func, candidate_field="title_text"):
+                            output_file, run_name, k1, b, rerank_func):
     N = len(doc_lengths)
     with open(output_file, "w", encoding="utf-8") as f:
         for _, row in queries_df.iterrows():
@@ -52,10 +49,7 @@ def generate_neural_results(queries_df, inverted_index, doc_lengths, avgdl, corp
             candidate_docs = {}
             for doc_id, _ in top_candidates:
                 doc_row = corpus_df[corpus_df["_id"] == doc_id].iloc[0]
-                if candidate_field == "title":
-                    candidate_docs[doc_id] = doc_row["title"]
-                else:  # "title_text"
-                    candidate_docs[doc_id] = doc_row["title"] + " " + doc_row["text"]
+                candidate_docs[doc_id] = doc_row["title"] + " " + doc_row["text"]
             neural_ranked = rerank_func(query_text, candidate_docs)
             for rank, (doc_id, score) in enumerate(neural_ranked[:100], start=1):
                 f.write(f"{query_id} Q0 {doc_id} {rank} {score:.4f} {run_name}\n")
@@ -89,16 +83,16 @@ generate_results_file_bm25(queries_df, inverted_index_tt, doc_lengths_tt, avgdl_
                            "./Results_BM25_TitleAndText.txt", "BM25_TitleAndText", k1=1.2, b=0.75)
 print("BM25 (Title+Text) results generated.")
 
-# 4. Neural Re-ranking with E5 (Title+Text)
+# 4. Neural Re-ranking with mpnet (Title+Text)
 generate_neural_results(queries_df, inverted_index_tt, doc_lengths_tt, avgdl_tt, corpus_df,
-                        "./Results_E5_TitleAndText.txt", "E5_TitleAndText", k1=1.2, b=0.75,
-                        rerank_func=rerank_e5, candidate_field="title_text")
-print("E5 re-ranking (Title+Text) results generated.")
+                        "./Results_MPNET_TitleAndText.txt", "MPNET_TitleAndText", k1=1.2, b=0.75,
+                        rerank_func=rerank_mpnet)
+print("MPNET re-ranking (Title+Text) results generated.")
 
 # 5. Neural Re-ranking with ColBERT (Title+Text)
 generate_neural_results(queries_df, inverted_index_tt, doc_lengths_tt, avgdl_tt, corpus_df,
                         "./Results_ColBERT_TitleAndText.txt", "ColBERT_TitleAndText", k1=1.2, b=0.75,
-                        rerank_func=rerank_colbert, candidate_field="title_text")
+                        rerank_func=rerank_colbert)
 print("ColBERT re-ranking (Title+Text) results generated.")
 
 # 6. Evaluation using pytrec_eval (MAP and P@10)
@@ -107,7 +101,7 @@ qrels = load_qrels_tsv("./scifact/qrels/test.tsv")
 evaluator = pytrec_eval.RelevanceEvaluator(qrels, metrics)
 
 results_bm25_tt = load_trec_results("./Results_BM25_TitleAndText.txt")
-results_e5_tt = load_trec_results("./Results_E5_TitleAndText.txt")
+results_mpnet_tt = load_trec_results("./Results_MPNET_TitleAndText.txt")
 results_colbert_tt = load_trec_results("./Results_ColBERT_TitleAndText.txt")
 
 def compute_avg_results(eval_results):
@@ -119,10 +113,10 @@ def compute_avg_results(eval_results):
 
 
 eval_bm25_tt = evaluator.evaluate(results_bm25_tt)
-eval_e5_tt = evaluator.evaluate(results_e5_tt)
+eval_mpnet_tt = evaluator.evaluate(results_mpnet_tt)
 eval_colbert_tt = evaluator.evaluate(results_colbert_tt)
 
 
 print("BM25 (Title+Text) Evaluation:", compute_avg_results(eval_bm25_tt))
-print("E5 (Title+Text) Evaluation:", compute_avg_results(eval_e5_tt))
+print("EMPNET (Title+Text) Evaluation:", compute_avg_results(eval_mpnet_tt))
 print("ColBERT (Title+Text) Evaluation:", compute_avg_results(eval_colbert_tt))
