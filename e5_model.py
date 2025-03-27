@@ -17,7 +17,7 @@ device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 e5_model.to(device)
 e5_model.eval()
 
-def embed_e5(text: str, is_query: bool) -> np.ndarray:
+def embed_e5(text, is_query) :
     """
     Embed the given text using the E5 model.
     If is_query=True, prefix the text with "query: ".
@@ -50,7 +50,7 @@ def embed_e5(text: str, is_query: bool) -> np.ndarray:
     cls_emb = outputs.last_hidden_state[:, 0, :]
     return cls_emb.squeeze(0).cpu().numpy()
 
-def e5_score(query_text: str, doc_text: str) -> float:
+def e5_score(query_text, doc_text) :
     """
     Compute a relevance score between query_text and doc_text using E5 embeddings.
 
@@ -71,7 +71,7 @@ def e5_score(query_text: str, doc_text: str) -> float:
     denominator = (np.linalg.norm(q_emb) * np.linalg.norm(d_emb)) + 1e-10
     return float(numerator / denominator)
 
-def rerank_e5(query_text: str, candidate_docs: dict) -> list:
+def rerank_e5(query_text, candidate_docs):
     """
     Re-rank candidate documents for a given query using E5 embeddings.
 
